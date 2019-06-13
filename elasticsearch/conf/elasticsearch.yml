@@ -1,0 +1,6 @@
+cluster.name: "docker-cluster"
+network.host: 0.0.0.0
+discovery.type: single-node
+http.port: 9200
+http.cors.enabled: "false"
+script.painless.regex.enabled: "true"

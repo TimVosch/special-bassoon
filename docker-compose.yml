@@ -1,0 +1,100 @@
+version: '3.2'
+
+services:
+  # The python application
+  app:
+    build: ./app/
+    entrypoint: "pipenv run"
+    command: python manage.py runserver 0.0.0.0:8000
+    environment:
+      - DOCKER=True
+      - PYTHONUNBUFFERED=1
+      - PIPENV_VENV_IN_PROJECT=1
+      - SHELL=/bin/bash
+    volumes:
+      - type: bind
+        source: ./app/
+        target: /opt/code/
+    ports:
+      - "3000:8000"
+    depends_on:
+      - collector
+      - mariadb
+
+  # The application's database
+  mariadb:
+    image: mariadb:latest
+    ports:
+      - "3010:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: toor
+      MYSQL_DATABASE: elasteusd
+    volumes: 
+      - mariadb:/var/lib/mysql
+
+  # FluentD collector
+  collector:
+    image: elasteusd/fluent
+    build: collector/
+    ports:
+      - "5170:5170"
+    environment:
+      FLUENTD_CONF: fluentd.conf
+    volumes:
+      - type: bind
+        source: ./collector/conf
+        target: /fluentd/etc
+  
+  # Elasticsearch database
+  elasticsearch:
+    image: elasticsearch:6.6.1
+    ports:
+      - "3011:9200"
+    volumes:
+      - ./elasticsearch/conf/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - esdata:/usr/share/elasticsearch/data
+
+  # Prometheus server
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - type: bind
+        source: ./prometheus/config
+        target: /etc/prometheus/
+    ports:
+      - "3002:9090"
+
+  # Dejavu Elasticsearch UI
+  dejavu:
+    image: appbaseio/dejavu:latest
+    ports:
+      - "3003:1358"
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    user: "${USERID}:${GROUPID}"
+    ports:
+      - "3001:3000"
+    environment:
+      - "GF_AUTH_ANONYMOUS_ENABLED=true"
+    volumes:
+      - type: bind
+        source: ./grafana/config
+        target: /var/lib/grafana
+  
+  # Kibana
+  kibana:
+    image: kibana:6.6.2
+    ports:
+      - "3004:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    volumes:
+      - ./kibana/conf/kibana.yml:/usr/share/kibana/config/kibana.yml
+
+volumes:
+  esdata:
+    driver: local
+  mariadb:
+    driver: local
